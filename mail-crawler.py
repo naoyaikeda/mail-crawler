@@ -1,3 +1,5 @@
+import email
+from email.header import decode_header, make_header
 import json
 import os
 from argparse import ArgumentParser
@@ -14,6 +16,14 @@ import rich.markdown
 
 console = rich.console.Console()
 imaplib._MAXLINE = 10000000   # Increase the maximum line length for IMAP responses
+
+def decode_subject(subject_raw: str) -> str:
+    """MIMEエンコードされた件名をデコードし、プレーンな文字列として返す"""
+    if not subject_raw:
+        return "(No Subject)"
+    # decode_header でタプル (バイト文字列, 文字コード) のリストを取得
+    # make_header でこれを結合し、最終的な文字列に変換
+    return str(make_header(decode_header(subject_raw)))
 
 def add_account():
     config_path = get_config_dir() / "accounts.json"
@@ -259,6 +269,12 @@ def crawler_accounts(args):
                 msg_id_list = msg_ids[0].split()
                 mails = len(msg_id_list)
                 if mails > 0:
+                    for msg_id in msg_id_list:
+                        status, msg_data = mail.fetch(msg_id, '(RFC822)')
+                        msg = email.message_from_bytes(msg_data[0][1])
+                        subject = decode_subject(msg['subject'])
+                        console.print(f"    Email ID: {msg_id.decode()} - Subject: {subject}")
+
                     console.print(f"  From: {address} - Emails Found Since {start_date_str}: {mails}")
 
             mail.logout()

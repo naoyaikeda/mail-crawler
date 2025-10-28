@@ -10,4 +10,5 @@ dependencies = [
     "google-auth-oauthlib>=1.2.2",
     "httpx>=0.28.1",
     "rich>=14.2.0",
+    "wheel>=0.45.1",
 ]

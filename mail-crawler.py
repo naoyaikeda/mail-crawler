@@ -225,14 +225,7 @@ def crawler_accounts(args):
         print("No account configurations found.")
         return
     
-    scaning_addresses_path = "scan_addresses.txt"
-    scan_addresses = set()
-    if os.path.exists(scaning_addresses_path):
-        with open(scaning_addresses_path, 'r') as f:
-            for line in f:
-                address = line.strip()
-                if address:
-                    scan_addresses.add(address)
+    scan_addresses = read_scan_addresses()
     
 
     for account in accounts:
@@ -243,6 +236,9 @@ def crawler_accounts(args):
                 mail = crawl_exchange_account(account, accounts, config_path)
             elif account['auth_type'] == 'IMAP':
                 mail = imap_open(account)
+            else:
+                print(f"Unsupported auth type for account {account['email']}")
+                continue
 
             mail.select("inbox")
             status, messages = mail.search(None, 'ALL')
@@ -263,6 +259,17 @@ def crawler_accounts(args):
             mail.logout()
         except Exception as e:
             print(f"Failed to crawl account {account['email']}: {e}")
+
+def read_scan_addresses():
+    scaning_addresses_path = "scan_addresses.txt"
+    scan_addresses = set()
+    if os.path.exists(scaning_addresses_path):
+        with open(scaning_addresses_path, 'r') as f:
+            for line in f:
+                address = line.strip()
+                if address:
+                    scan_addresses.add(address)
+    return scan_addresses
 
 def imap_open(account):
     mail = imaplib.IMAP4_SSL(account['imap_server'], int(account['imap_port']))

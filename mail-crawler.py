@@ -166,8 +166,10 @@ def crawler_accounts(args):
                 if address:
                     scan_addresses.add(address)
     
+
     for account in accounts:
         try:
+            google_auth = gauth.GoogleAuth()
             if account['auth_type'] == 'GMAIL_OAUTH2':
                 def attempt_login(token):
                     access_token = token
@@ -178,20 +180,35 @@ def crawler_accounts(args):
 
                 try:
                     mail = attempt_login(account['password'])
-                except imaplib.IMAP4.error:
-                    google_auth = gauth.GoogleAuth()
-                    refresh_response = google_auth.refresh_access_token(account['refresh_token'])
-                    new_access_token = refresh_response['access_token']
-                    account['password'] = new_access_token
-                    with open(config_path, 'r') as f:
-                        all_accounts = json.load(f)
-                    for acc in all_accounts:
-                        if acc['email'] == account['email']:
-                            acc['password'] = new_access_token
-                    with open(config_path, 'w') as f:
-                        json.dump(all_accounts, f, indent=4)
-                    mail = attempt_login(new_access_token)
-
+                except imaplib.IMAP4.error as first_error:
+                    refresh_token = account.get('refresh_token')
+                    
+                    # 🚨 修正点 1: リフレッシュトークンの有無とエラーメッセージを確認
+                    if 'AUTHENTICATIONFAILED' in str(first_error) and refresh_token:
+                        print(f"[{account['email']}] Token expired. Attempting refresh...")
+                        
+                        # リフレッシュ処理
+                        refresh_response = google_auth.refresh_access_token(refresh_token)
+                        new_access_token = refresh_response['access_token']
+                        
+                        # 🚨 修正点 2: accountsリスト内の情報を直接更新
+                        # (accountはaccounts[idx]への参照なのでこれでOK)
+                        account['password'] = new_access_token
+                        if 'refresh_token' in refresh_response:
+                            account['refresh_token'] = refresh_response['refresh_token']
+                        
+                        # 2回目の試行（リフレッシュしたトークンで）
+                        mail = attempt_login(new_access_token)
+                        print(f"[{account['email']}] Token refreshed and login successful.")
+                        
+                        # 🚨 修正点 3: トークン更新があった場合に、accounts.jsonに書き戻す
+                        # トークン更新があった場合のみファイルI/Oを実行
+                        with open(config_path, 'w') as f:
+                            json.dump(accounts, f, indent=4)
+                            
+                    else:
+                        # リフレッシュトークンがない、または他のIMAPエラーの場合は処理中断
+                        raise first_error
             elif account['auth_type'] == 'EXCHANGE_OAUTH2':
                 # Exchange Online (Outlook.office365.com) も XOAUTH2 を使用
                 access_token = account['password']

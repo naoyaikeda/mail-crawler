@@ -254,8 +254,7 @@ def crawler_accounts(args):
                         raise first_error # 他のエラー、またはリフレッシュトークンがない場合は再スロー
 
             elif account['auth_type'] == 'IMAP':
-                mail = imaplib.IMAP4_SSL(account['imap_server'], int(account['imap_port']))
-                mail.login(account['username'], account['password'])
+                mail = imap_open(account)
 
             mail.select("inbox")
             status, messages = mail.search(None, 'ALL')
@@ -276,6 +275,11 @@ def crawler_accounts(args):
             mail.logout()
         except Exception as e:
             print(f"Failed to crawl account {account['email']}: {e}")
+
+def imap_open(account):
+    mail = imaplib.IMAP4_SSL(account['imap_server'], int(account['imap_port']))
+    mail.login(account['username'], account['password'])
+    return mail
 
 def execute_command(args, command):
     if command == "clear":

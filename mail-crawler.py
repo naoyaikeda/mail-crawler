@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import gauth
 import exauth
 import locale
+from config import get_config_dir
 import datetime
 import rich
 import rich.console
@@ -15,7 +16,7 @@ console = rich.console.Console()
 imaplib._MAXLINE = 10000000   # Increase the maximum line length for IMAP responses
 
 def add_account():
-    config_path = "accounts.json"
+    config_path = get_config_dir() / "accounts.json"
     account_info = {}
 
     account_info['auth_type'] = 'IMAP'
@@ -44,7 +45,7 @@ def add_account():
 def add_account_exchange():
     exchange_auth = exauth.ExchangeAuth()
 
-    config_path = "accounts.json"
+    config_path = get_config_dir() / "accounts.json"
     account_info = {}
 
     account_info['auth_type'] = 'EXCHANGE_OAUTH2'
@@ -83,7 +84,7 @@ def add_account_exchange():
 def add_account_gmail():
     google_auth = gauth.GoogleAuth()
 
-    config_path = "accounts.json"
+    config_path = get_config_dir() / "accounts.json"
     account_info = {}
 
     account_info['auth_type'] = 'GMAIL_OAUTH2'
@@ -121,7 +122,7 @@ def add_account_gmail():
 
 
 def clear_accounts():
-    config_path = "accounts.json"
+    config_path = get_config_dir() / "accounts.json"
     if os.path.exists(config_path):
         os.remove(config_path)
         print("All account configurations have been cleared.")
@@ -129,7 +130,7 @@ def clear_accounts():
         print("No account configurations found to clear.")
 
 def list_accounts():
-    config_path = "accounts.json"
+    config_path = get_config_dir() / "accounts.json"
     if os.path.exists(config_path):
         with open(config_path, 'r') as f:
             try:
@@ -217,7 +218,7 @@ def crawl_exchange_account(account, accounts, config_path):
 
 def crawler_accounts(args):
     accounts = []
-    config_path = "accounts.json"
+    config_path = get_config_dir() / "accounts.json"
     if os.path.exists(config_path):
         with open(config_path, 'r') as f:
             try:
@@ -265,7 +266,7 @@ def crawler_accounts(args):
             console.print(f"Failed to crawl account {account['email']}: {e}")
 
 def read_scan_addresses():
-    scaning_addresses_path = "scan_addresses.txt"
+    scaning_addresses_path = get_config_dir() / "scan_addresses.txt"
     scan_addresses = set()
     if os.path.exists(scaning_addresses_path):
         with open(scaning_addresses_path, 'r') as f:
@@ -303,7 +304,7 @@ def initialize_locale():
 def main():
     initialize_locale()
 
-    load_dotenv()
+    load_dotenv(dotenv_path=get_config_dir() / ".env")
     gmail_client_id = os.getenv("GMAIL_CLIENT_ID")
     gmail_client_secret = os.getenv("GMAIL_CLIENT_SECRET")
 

@@ -79,7 +79,7 @@ def add_account_gmail():
 
     account_info['auth_type'] = 'GMAIL_OAUTH2'
     account_info['email'] = input("Enter email address: ")
-    account_info['username'] = input("Enter username: ")
+    account_info['username'] = account_info['email']
     account_info['imap_server'] = "imap.gmail.com"
     account_info['imap_port'] = 993
 

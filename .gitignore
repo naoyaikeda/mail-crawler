@@ -10,4 +10,5 @@ wheels/
 .venv
 
 # Configuration files
+.env
 accounts.json

@@ -2,6 +2,8 @@ import json
 import os
 from argparse import ArgumentParser
 import imaplib
+from dotenv import load_dotenv
+import gauth
 
 def add_account():
     config_path = "accounts.json"
@@ -29,6 +31,45 @@ def add_account():
         json.dump(accounts, f, indent=4)
 
     print("Account added successfully.")
+
+def add_account_gmail():
+    google_auth = gauth.GoogleAuth()
+
+    config_path = "accounts.json"
+    account_info = {}
+
+    account_info['auth_type'] = 'GMAIL_OAUTH2'
+    account_info['email'] = input("Enter email address: ")
+    account_info['username'] = input("Enter username: ")
+    account_info['imap_server'] = "imap.gmail.com"
+    account_info['imap_port'] = 993
+
+    google_auth = gauth.GoogleAuth()
+    scope = "https://mail.google.com/"
+    auth_url = google_auth.get_auth_url(scope)
+    print("Please go to the following URL to authorize the application:")
+    print(auth_url)
+    auth_code = input("Enter the authorization code: ")
+
+    access_token_response = google_auth.get_access_token(auth_code)
+    account_info['password'] = access_token_response['access_token']
+
+    if os.path.exists(config_path):
+        with open(config_path, 'r') as f:
+            try:
+                accounts = json.load(f)
+            except json.JSONDecodeError:
+                accounts = []
+    else:
+        accounts = []
+
+    accounts.append(account_info)
+
+    with open(config_path, 'w') as f:
+        json.dump(accounts, f, indent=4)
+
+    print("Account added successfully.")
+
 
 def clear_accounts():
     config_path = "accounts.json"
@@ -73,14 +114,21 @@ def crawler_accounts():
     
     for account in accounts:
         try:
-            mail = imaplib.IMAP4_SSL(account['imap_server'], int(account['imap_port']))
-            mail.login(account['username'], account['password'])
+            if account['auth_type'] == 'GMAIL_OAUTH2':
+                access_token = account['password']
+                auth_string = f"user={account['username']}\1auth=Bearer {access_token}\1\1"
+                mail = imaplib.IMAP4_SSL(account['imap_server'], int(account['imap_port']))
+                mail.authenticate('XOAUTH2', lambda x: auth_string)
+            elif account['auth_type'] == 'IMAP':
+                mail = imaplib.IMAP4_SSL(account['imap_server'], int(account['imap_port']))
+                mail.login(account['username'], account['password'])
+
             mail.select("inbox")
             status, messages = mail.search(None, 'ALL')
             email_ids = messages[0].split()
             print(f"Account: {account['email']} - Total Emails: {len(email_ids)}")
             mail.logout()
-        except Exception as e:
+        except SyntaxError as e:
             print(f"Failed to crawl account {account['email']}: {e}")
 
 def execute_command(command):
@@ -88,14 +136,20 @@ def execute_command(command):
         clear_accounts()
     elif command == "add":
         add_account()
+    elif command == "add_gmail":
+        add_account_gmail()
     elif command == "list":
         list_accounts()
     elif command == "crawl":
         crawler_accounts()
 
 def main():
+    load_dotenv()
+    gmail_client_id = os.getenv("GMAIL_CLIENT_ID")
+    gmail_client_secret = os.getenv("GMAIL_CLIENT_SECRET")
+
     parser = ArgumentParser(description="Mail Crawler Configuration Loader")
-    parser.add_argument("command", choices=["clear", "add", "list", "crawl"], help="Command to execute")
+    parser.add_argument("command", choices=["clear", "add", 'add_gmail', "list", "crawl"], help="Command to execute")
 
     args = parser.parse_args()
     execute_command(args.command)

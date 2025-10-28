@@ -12,3 +12,5 @@ dependencies = [
     "rich>=14.2.0",
     "wheel>=0.45.1",
 ]
+[tool.setuptools]
+package-dir = {"" = "src"}

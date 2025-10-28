@@ -143,6 +143,74 @@ def list_accounts():
     else:
         print("No account configurations found.")
 
+def crawl_gmail_account(account, accounts, config_path):
+    google_auth = gauth.GoogleAuth()
+
+    def attempt_login(token):
+        access_token = token
+        auth_string = f"user={account['username']}\1auth=Bearer {access_token}\1\1"
+        mail = imaplib.IMAP4_SSL(account['imap_server'], int(account['imap_port']))
+        mail.authenticate('XOAUTH2', lambda x: auth_string)
+        return mail
+
+    try:
+        mail = attempt_login(account['password'])
+    except imaplib.IMAP4.error as first_error:
+        refresh_token = account.get('refresh_token')
+
+        if 'AUTHENTICATIONFAILED' in str(first_error) and refresh_token:
+            print(f"[{account['email']}] Token expired. Attempting refresh...")
+
+            refresh_response = google_auth.refresh_access_token(refresh_token)
+            new_access_token = refresh_response['access_token']
+
+            account['password'] = new_access_token
+            if 'refresh_token' in refresh_response:
+                account['refresh_token'] = refresh_response['refresh_token']
+
+            mail = attempt_login(new_access_token)
+            print(f"[{account['email']}] Token refreshed and login successful.")
+
+            with open(config_path, 'w') as f:
+                json.dump(accounts, f, indent=4)
+        else:
+            raise first_error
+    return mail
+
+def crawl_exchange_account(account, accounts, config_path):
+    exchange_auth = exauth.ExchangeAuth()
+
+    def attempt_login_exchange(token):
+        access_token = token
+        auth_string = f"user={account['username']}\1auth=Bearer {access_token}\1\1"
+        mail = imaplib.IMAP4_SSL(account['imap_server'], int(account['imap_port']))
+        mail.authenticate('XOAUTH2', lambda x: auth_string)
+        return mail
+
+    try:
+        mail = attempt_login_exchange(account['password'])
+    except imaplib.IMAP4.error as first_error:
+        refresh_token = account.get('refresh_token')
+
+        if 'AUTHENTICATE failed.' in str(first_error) and refresh_token:
+            print(f"[{account['email']}] Exchange Token expired. Attempting refresh...")
+
+            refresh_response = exchange_auth.refresh_access_token(refresh_token)
+            new_access_token = refresh_response['access_token']
+
+            account['password'] = new_access_token
+            if 'refresh_token' in refresh_response:
+                account['refresh_token'] = refresh_response['refresh_token']
+
+            mail = attempt_login_exchange(new_access_token)
+            print(f"[{account['email']}] Exchange Token refreshed and login successful.")
+
+            with open(config_path, 'w') as f:
+                json.dump(accounts, f, indent=4)
+        else:
+            raise first_error
+    return mail
+
 def crawler_accounts(args):
     accounts = []
     config_path = "accounts.json"
@@ -169,90 +237,10 @@ def crawler_accounts(args):
 
     for account in accounts:
         try:
-            google_auth = gauth.GoogleAuth()
             if account['auth_type'] == 'GMAIL_OAUTH2':
-                def attempt_login(token):
-                    access_token = token
-                    auth_string = f"user={account['username']}\1auth=Bearer {access_token}\1\1"
-                    mail = imaplib.IMAP4_SSL(account['imap_server'], int(account['imap_port']))
-                    mail.authenticate('XOAUTH2', lambda x: auth_string)
-                    return mail
-
-                try:
-                    mail = attempt_login(account['password'])
-                except imaplib.IMAP4.error as first_error:
-                    refresh_token = account.get('refresh_token')
-                    
-                    # 🚨 修正点 1: リフレッシュトークンの有無とエラーメッセージを確認
-                    if 'AUTHENTICATIONFAILED' in str(first_error) and refresh_token:
-                        print(f"[{account['email']}] Token expired. Attempting refresh...")
-                        
-                        # リフレッシュ処理
-                        refresh_response = google_auth.refresh_access_token(refresh_token)
-                        new_access_token = refresh_response['access_token']
-                        
-                        # 🚨 修正点 2: accountsリスト内の情報を直接更新
-                        # (accountはaccounts[idx]への参照なのでこれでOK)
-                        account['password'] = new_access_token
-                        if 'refresh_token' in refresh_response:
-                            account['refresh_token'] = refresh_response['refresh_token']
-                        
-                        # 2回目の試行（リフレッシュしたトークンで）
-                        mail = attempt_login(new_access_token)
-                        print(f"[{account['email']}] Token refreshed and login successful.")
-                        
-                        # 🚨 修正点 3: トークン更新があった場合に、accounts.jsonに書き戻す
-                        # トークン更新があった場合のみファイルI/Oを実行
-                        with open(config_path, 'w') as f:
-                            json.dump(accounts, f, indent=4)
-                            
-                    else:
-                        # リフレッシュトークンがない、または他のIMAPエラーの場合は処理中断
-                        raise first_error
+                mail = crawl_gmail_account(account, accounts, config_path)
             elif account['auth_type'] == 'EXCHANGE_OAUTH2':
-                exchange_auth = exauth.ExchangeAuth()
-
-                def attempt_login_exchange(token):
-                    access_token = token
-                    # Exchange Onlineも XOAUTH2 を使用
-                    auth_string = f"user={account['username']}\1auth=Bearer {access_token}\1\1"
-                    mail = imaplib.IMAP4_SSL(account['imap_server'], int(account['imap_port']))
-                    mail.authenticate('XOAUTH2', lambda x: auth_string)
-                    return mail
-
-                mail = None
-                
-                try:
-                    # 1回目の試行（既存トークンを使用）
-                    mail = attempt_login_exchange(account['password'])
-
-                except imaplib.IMAP4.error as first_error:
-                    refresh_token = account.get('refresh_token')
-                    
-                    # 認証失敗 (AUTHENTICATIONFAILED) かつリフレッシュトークンがある場合
-                    if 'AUTHENTICATE failed.' in str(first_error) and refresh_token:
-                        print(f"[{account['email']}] Exchange Token expired. Attempting refresh...")
-                        
-                        # リフレッシュ処理
-                        refresh_response = exchange_auth.refresh_access_token(refresh_token) 
-                        new_access_token = refresh_response['access_token']
-                        
-                        # accountsリスト内の情報を更新
-                        account['password'] = new_access_token
-                        if 'refresh_token' in refresh_response:
-                            account['refresh_token'] = refresh_response['refresh_token']
-                        
-                        # 2回目の試行（リフレッシュしたトークンで）
-                        mail = attempt_login_exchange(new_access_token)
-                        print(f"[{account['email']}] Exchange Token refreshed and login successful.")
-                        
-                        # accounts.jsonに書き戻す (永続化)
-                        with open(config_path, 'w') as f:
-                            json.dump(accounts, f, indent=4)
-                            
-                    else:
-                        raise first_error # 他のエラー、またはリフレッシュトークンがない場合は再スロー
-
+                mail = crawl_exchange_account(account, accounts, config_path)
             elif account['auth_type'] == 'IMAP':
                 mail = imap_open(account)
 

@@ -5,10 +5,10 @@ import os
 from argparse import ArgumentParser
 import imaplib
 from dotenv import load_dotenv
-import gauth
-import exauth
+import auth.gauth as gauth
+import auth.exauth as exauth
 import locale
-from config import get_config_dir
+from config.config import get_config_dir
 import datetime
 import rich
 import rich.console

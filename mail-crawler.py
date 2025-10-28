@@ -176,7 +176,7 @@ def crawler_accounts():
             email_ids = messages[0].split()
             print(f"Account: {account['email']} - Total Emails: {len(email_ids)}")
             mail.logout()
-        except SyntaxError as e:
+        except Exception as e:
             print(f"Failed to crawl account {account['email']}: {e}")
 
 def execute_command(command):

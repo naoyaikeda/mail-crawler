@@ -7,7 +7,11 @@ import gauth
 import exauth
 import locale
 import datetime
+import rich
+import rich.console
+import rich.markdown
 
+console = rich.console.Console()
 imaplib._MAXLINE = 10000000   # Increase the maximum line length for IMAP responses
 
 def add_account():
@@ -133,15 +137,15 @@ def list_accounts():
             except json.JSONDecodeError:
                 accounts = []
             for idx, account in enumerate(accounts, start=1):
-                print(f"Account {idx}:")
-                print(f"  Auth Type: {account['auth_type']}")
-                print(f"  Email: {account['email']}")
-                print(f"  User name: {account['username']}")
-                print(f"  IMAP Server: {account['imap_server']}")
-                print(f"  IMAP Port: {account['imap_port']}")
-                print()
+                console.print(f"Account {idx}:")
+                console.print(f"  Auth Type: {account['auth_type']}")
+                console.print(f"  Email: {account['email']}")
+                console.print(f"  User name: {account['username']}")
+                console.print(f"  IMAP Server: {account['imap_server']}")
+                console.print(f"  IMAP Port: {account['imap_port']}")
+                console.print()
     else:
-        print("No account configurations found.")
+        console.print("No account configurations found.")
 
 def crawl_gmail_account(account, accounts, config_path):
     google_auth = gauth.GoogleAuth()
@@ -159,7 +163,7 @@ def crawl_gmail_account(account, accounts, config_path):
         refresh_token = account.get('refresh_token')
 
         if 'AUTHENTICATIONFAILED' in str(first_error) and refresh_token:
-            print(f"[{account['email']}] Token expired. Attempting refresh...")
+            console.print(f"[{account['email']}] Token expired. Attempting refresh...")
 
             refresh_response = google_auth.refresh_access_token(refresh_token)
             new_access_token = refresh_response['access_token']
@@ -169,7 +173,7 @@ def crawl_gmail_account(account, accounts, config_path):
                 account['refresh_token'] = refresh_response['refresh_token']
 
             mail = attempt_login(new_access_token)
-            print(f"[{account['email']}] Token refreshed and login successful.")
+            console.print(f"[{account['email']}] Token refreshed and login successful.")
 
             with open(config_path, 'w') as f:
                 json.dump(accounts, f, indent=4)
@@ -193,7 +197,7 @@ def crawl_exchange_account(account, accounts, config_path):
         refresh_token = account.get('refresh_token')
 
         if 'AUTHENTICATE failed.' in str(first_error) and refresh_token:
-            print(f"[{account['email']}] Exchange Token expired. Attempting refresh...")
+            console.print(f"[{account['email']}] Exchange Token expired. Attempting refresh...")
 
             refresh_response = exchange_auth.refresh_access_token(refresh_token)
             new_access_token = refresh_response['access_token']
@@ -203,7 +207,7 @@ def crawl_exchange_account(account, accounts, config_path):
                 account['refresh_token'] = refresh_response['refresh_token']
 
             mail = attempt_login_exchange(new_access_token)
-            print(f"[{account['email']}] Exchange Token refreshed and login successful.")
+            console.print(f"[{account['email']}] Exchange Token refreshed and login successful.")
 
             with open(config_path, 'w') as f:
                 json.dump(accounts, f, indent=4)
@@ -219,10 +223,10 @@ def crawler_accounts(args):
             try:
                 accounts = json.load(f)
             except json.JSONDecodeError:
-                print("No valid account configurations found.")
+                console.print("No valid account configurations found.")
                 return
     else:
-        print("No account configurations found.")
+        console.print("No account configurations found.")
         return
     
     scan_addresses = read_scan_addresses()
@@ -237,13 +241,13 @@ def crawler_accounts(args):
             elif account['auth_type'] == 'IMAP':
                 mail = imap_open(account)
             else:
-                print(f"Unsupported auth type for account {account['email']}")
+                console.print(f"Unsupported auth type for account {account['email']}")
                 continue
 
             mail.select("inbox")
             status, messages = mail.search(None, 'ALL')
             email_ids = messages[0].split()
-            print(f"Account: {account['email']} - Total Emails: {len(email_ids)}")
+            console.print(f"Account: {account['email']} - Total Emails: {len(email_ids)}")
 
             today = datetime.date.today()
             start_date = today - datetime.timedelta(days=args.scan_delta_days)
@@ -254,11 +258,11 @@ def crawler_accounts(args):
                 msg_id_list = msg_ids[0].split()
                 mails = len(msg_id_list)
                 if mails > 0:
-                    print(f"  From: {address} - Emails Found Since {start_date_str}: {mails}")
+                    console.print(f"  From: {address} - Emails Found Since {start_date_str}: {mails}")
 
             mail.logout()
         except Exception as e:
-            print(f"Failed to crawl account {account['email']}: {e}")
+            console.print(f"Failed to crawl account {account['email']}: {e}")
 
 def read_scan_addresses():
     scaning_addresses_path = "scan_addresses.txt"

@@ -9,4 +9,5 @@ dependencies = [
     "google-auth>=2.41.1",
     "google-auth-oauthlib>=1.2.2",
     "httpx>=0.28.1",
+    "rich>=14.2.0",
 ]

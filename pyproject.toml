@@ -15,4 +15,4 @@ dependencies = [
 [tool.setuptools]
 package-dir = {"" = "src"}
 [project.scripts]
-mail-crawler = "mail-crawler:main" 
+mail-crawler = "mail_crawler:main" 

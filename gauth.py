@@ -1,6 +1,7 @@
 import httpx
 from dotenv import load_dotenv
 import os
+from config import get_config_dir
 
 class GoogleAuth:
     client_id: str
@@ -10,7 +11,7 @@ class GoogleAuth:
     token_url: str
 
     def __init__(self):
-        load_dotenv()
+        load_dotenv(dotenv_path=get_config_dir() / ".env")
         self.client_id = os.getenv("GMAIL_CLIENT_ID")
         self.client_secret = os.getenv("GMAIL_CLIENT_SECRET")
         self.redirect_uri = "urn:ietf:wg:oauth:2.0:oob"

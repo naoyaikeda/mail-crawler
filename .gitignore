@@ -12,3 +12,4 @@ wheels/
 # Configuration files
 .env
 accounts.json
+scan_addresses.txt

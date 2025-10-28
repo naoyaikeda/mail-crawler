@@ -5,6 +5,8 @@ import imaplib
 from dotenv import load_dotenv
 import gauth
 import exauth
+import locale
+import datetime
 
 imaplib._MAXLINE = 10000000   # Increase the maximum line length for IMAP responses
 
@@ -139,7 +141,7 @@ def list_accounts():
     else:
         print("No account configurations found.")
 
-def crawler_accounts():
+def crawler_accounts(args):
     accounts = []
     config_path = "accounts.json"
     if os.path.exists(config_path):
@@ -152,6 +154,15 @@ def crawler_accounts():
     else:
         print("No account configurations found.")
         return
+    
+    scaning_addresses_path = "scan_addresses.txt"
+    scan_addresses = set()
+    if os.path.exists(scaning_addresses_path):
+        with open(scaning_addresses_path, 'r') as f:
+            for line in f:
+                address = line.strip()
+                if address:
+                    scan_addresses.add(address)
     
     for account in accounts:
         try:
@@ -175,11 +186,21 @@ def crawler_accounts():
             status, messages = mail.search(None, 'ALL')
             email_ids = messages[0].split()
             print(f"Account: {account['email']} - Total Emails: {len(email_ids)}")
+
+            today = datetime.date.today()
+            start_date = today - datetime.timedelta(days=args.scan_delta_days)
+            start_date_str = start_date.strftime("%d-%b-%Y")
+
+            for address in scan_addresses:
+                status, msg_ids = mail.search(None, f'(FROM "{address}" SINCE {start_date_str})')
+                msg_id_list = msg_ids[0].split()
+                print(f"  From: {address} - Emails Found Since {start_date_str}: {len(msg_id_list)}")
+
             mail.logout()
         except Exception as e:
             print(f"Failed to crawl account {account['email']}: {e}")
 
-def execute_command(command):
+def execute_command(args, command):
     if command == "clear":
         clear_accounts()
     elif command == "add":
@@ -191,18 +212,27 @@ def execute_command(command):
     elif command == "list":
         list_accounts()
     elif command == "crawl":
-        crawler_accounts()
+        crawler_accounts(args)
+
+def initialize_locale():
+    try:
+        locale.setlocale(locale.LC_ALL, 'C')
+    except locale.Error as e:
+        print(f"Warning: Unable to set locale: {e}")
 
 def main():
+    initialize_locale()
+
     load_dotenv()
     gmail_client_id = os.getenv("GMAIL_CLIENT_ID")
     gmail_client_secret = os.getenv("GMAIL_CLIENT_SECRET")
 
     parser = ArgumentParser(description="Mail Crawler Configuration Loader")
     parser.add_argument("command", choices=["clear", "add", "add_gmail", "add_exchange", "list", "crawl"], help="Command to execute")
+    parser.add_argument("--scan-delta-days", type=int, default=2, help="Number of days to look back for scanning emails")
 
     args = parser.parse_args()
-    execute_command(args.command)
+    execute_command(args, args.command)
 
 if __name__ == "__main__":
     main()

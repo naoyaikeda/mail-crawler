@@ -28,6 +28,18 @@ class ExchangeAuth:
         response = httpx.post(self.token_url, data=data)
         response.raise_for_status()
         return response.json()
+    
+    def refresh_access_token(self, refresh_token: str) -> dict:
+        data = {
+            "client_id": self.client_id,
+            "scope":  "https://outlook.office365.com/IMAP.AccessAsUser.All offline_access",
+            "refresh_token": refresh_token,
+            "grant_type": "refresh_token"
+        }
+        response = httpx.post(self.token_url, data=data)
+        response.raise_for_status()
+        return response.json()
+
 
     def get_auth_url(self) -> str:
         params = {

@@ -58,6 +58,7 @@ def add_account_exchange():
 
     access_token_response = exchange_auth.get_access_token(auth_code)
     account_info['password'] = access_token_response['access_token']
+    account_info['refresh_token'] = access_token_response.get('refresh_token', '')
 
     if os.path.exists(config_path):
         with open(config_path, 'r') as f:
@@ -96,6 +97,7 @@ def add_account_gmail():
 
     access_token_response = google_auth.get_access_token(auth_code)
     account_info['password'] = access_token_response['access_token']
+    account_info['refresh_token'] = access_token_response.get('refresh_token', '')
 
     if os.path.exists(config_path):
         with open(config_path, 'r') as f:
@@ -167,10 +169,29 @@ def crawler_accounts(args):
     for account in accounts:
         try:
             if account['auth_type'] == 'GMAIL_OAUTH2':
-                access_token = account['password']
-                auth_string = f"user={account['username']}\1auth=Bearer {access_token}\1\1"
-                mail = imaplib.IMAP4_SSL(account['imap_server'], int(account['imap_port']))
-                mail.authenticate('XOAUTH2', lambda x: auth_string)
+                def attempt_login(token):
+                    access_token = token
+                    auth_string = f"user={account['username']}\1auth=Bearer {access_token}\1\1"
+                    mail = imaplib.IMAP4_SSL(account['imap_server'], int(account['imap_port']))
+                    mail.authenticate('XOAUTH2', lambda x: auth_string)
+                    return mail
+
+                try:
+                    mail = attempt_login(account['password'])
+                except imaplib.IMAP4.error:
+                    google_auth = gauth.GoogleAuth()
+                    refresh_response = google_auth.refresh_access_token(account['refresh_token'])
+                    new_access_token = refresh_response['access_token']
+                    account['password'] = new_access_token
+                    with open(config_path, 'r') as f:
+                        all_accounts = json.load(f)
+                    for acc in all_accounts:
+                        if acc['email'] == account['email']:
+                            acc['password'] = new_access_token
+                    with open(config_path, 'w') as f:
+                        json.dump(all_accounts, f, indent=4)
+                    mail = attempt_login(new_access_token)
+
             elif account['auth_type'] == 'EXCHANGE_OAUTH2':
                 # Exchange Online (Outlook.office365.com) も XOAUTH2 を使用
                 access_token = account['password']
@@ -194,7 +215,9 @@ def crawler_accounts(args):
             for address in scan_addresses:
                 status, msg_ids = mail.search(None, f'(FROM "{address}" SINCE {start_date_str})')
                 msg_id_list = msg_ids[0].split()
-                print(f"  From: {address} - Emails Found Since {start_date_str}: {len(msg_id_list)}")
+                mails = len(msg_id_list)
+                if mails > 0:
+                    print(f"  From: {address} - Emails Found Since {start_date_str}: {mails}")
 
             mail.logout()
         except Exception as e:

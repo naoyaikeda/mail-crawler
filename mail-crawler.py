@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 import gauth
 import exauth
 
+imaplib._MAXLINE = 10000000   # Increase the maximum line length for IMAP responses
+
 def add_account():
     config_path = "accounts.json"
     account_info = {}

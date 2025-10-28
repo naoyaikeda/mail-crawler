@@ -230,7 +230,7 @@ def crawler_accounts(args):
                     refresh_token = account.get('refresh_token')
                     
                     # 認証失敗 (AUTHENTICATIONFAILED) かつリフレッシュトークンがある場合
-                    if 'AUTHENTICATIONFAILED' in str(first_error) and refresh_token:
+                    if 'AUTHENTICATE failed.' in str(first_error) and refresh_token:
                         print(f"[{account['email']}] Exchange Token expired. Attempting refresh...")
                         
                         # リフレッシュ処理

@@ -22,7 +22,6 @@ class ExchangeAuth:
             "code": auth_code,
             "scope":  "https://outlook.office365.com/IMAP.AccessAsUser.All offline_access",
             "client_id": self.client_id,
-            "client_secret": self.client_secret,
             "redirect_uri": self.redirect_uri,
             "grant_type": "authorization_code"
         }

@@ -158,6 +158,13 @@ def crawler_accounts():
                 auth_string = f"user={account['username']}\1auth=Bearer {access_token}\1\1"
                 mail = imaplib.IMAP4_SSL(account['imap_server'], int(account['imap_port']))
                 mail.authenticate('XOAUTH2', lambda x: auth_string)
+            elif account['auth_type'] == 'EXCHANGE_OAUTH2':
+                # Exchange Online (Outlook.office365.com) も XOAUTH2 を使用
+                access_token = account['password']
+                # XOAUTH2 認証文字列は Gmail と同じ形式
+                auth_string = f"user={account['username']}\1auth=Bearer {access_token}\1\1"
+                mail = imaplib.IMAP4_SSL(account['imap_server'], int(account['imap_port']))
+                mail.authenticate('XOAUTH2', lambda x: auth_string)
             elif account['auth_type'] == 'IMAP':
                 mail = imaplib.IMAP4_SSL(account['imap_server'], int(account['imap_port']))
                 mail.login(account['username'], account['password'])
